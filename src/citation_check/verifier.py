@@ -21,17 +21,25 @@ def _not_found_result(reference: Reference, details: str) -> VerificationResult:
     )
 
 
+_STATUS_RANK = {"verified": 2, "close_match": 1, "mismatch": 0, "not_found": 0}
+
+
 def _pick_best(
     current_best: VerificationResult | None,
     results: list[SearchResult],
     reference: Reference,
 ) -> VerificationResult | None:
-    """Score all results and return the one with the highest title_score."""
+    """Score all results and return the best match, preferring verified results."""
     best = current_best
     for result in results:
         vr = score_match(reference, result)
-        if best is None or vr.title_score > best.title_score:
+        if best is None:
             best = vr
+        else:
+            vr_rank = _STATUS_RANK.get(vr.status, 0)
+            best_rank = _STATUS_RANK.get(best.status, 0)
+            if vr_rank > best_rank or (vr_rank == best_rank and vr.title_score > best.title_score):
+                best = vr
     return best
 
 
