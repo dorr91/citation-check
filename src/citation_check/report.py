@@ -289,6 +289,24 @@ def write_batch_report(
   .error-row td { color: var(--red); }
   details { margin-bottom: 0.5rem; }
   details summary { cursor: pointer; font-weight: 500; padding: 0.25rem 0; }
+  .toggle-btn {
+    background: var(--bg-alt);
+    border: 1px solid var(--border);
+    border-radius: 0.375rem;
+    padding: 0.25rem 0.75rem;
+    font-size: 0.8rem;
+    cursor: pointer;
+    color: var(--text-dim);
+    margin-bottom: 0.5rem;
+  }
+  .toggle-btn:hover { background: #eaeef2; }
+  .row-ok { display: none; }
+  .show-all .row-ok { display: table-row; }
+  .ref-detail { color: var(--text-dim); font-size: 0.85rem; line-height: 1.6; padding-top: 0.15rem; }
+  .ref-detail dt { display: inline; font-weight: 600; }
+  .ref-detail dt::after { content: " "; }
+  .ref-detail dd { display: inline; margin: 0; }
+  .ref-detail dd::after { content: ""; display: block; }
 </style>
 </head>
 <body>
@@ -345,7 +363,7 @@ def write_batch_report(
     parts.append("</table>\n")
 
     # Per-paper details
-    for name, results in paper_results:
+    for paper_idx, (name, results) in enumerate(paper_results):
         esc_name = _html_escape(name)
         parts.append(f"<h2>{esc_name}</h2>\n")
 
@@ -353,13 +371,31 @@ def write_batch_report(
             parts.append("<p>No references found.</p>\n")
             continue
 
-        parts.append("<table>\n<tr><th>#</th><th>Status</th>")
+        n_not_found = sum(
+            1 for r in results if r.status in ("not_found", "mismatch")
+        )
+        n_ok = len(results) - n_not_found
+
+        if n_ok > 0:
+            parts.append(
+                f"<button class='toggle-btn' onclick=\""
+                f"var t=document.getElementById('paper-{paper_idx}');"
+                f"var on=t.classList.toggle('show-all');"
+                f"this.textContent=on"
+                f"?'Hide {n_ok} verified/close match'"
+                f":'Show {n_ok} verified/close match';"
+                f"\">Show {n_ok} verified/close match</button>\n"
+            )
+
+        parts.append(f"<table id='paper-{paper_idx}'>\n<tr><th>#</th><th>Status</th>")
         parts.append("<th>Reference</th><th>Best Match</th><th>Score</th></tr>\n")
 
         for vr in results:
             idx = vr.reference.index + 1
             status_label = PLAIN_STATUS.get(vr.status, vr.status)
             css_class = STATUS_CSS_CLASS.get(vr.status, "")
+            is_problem = vr.status in ("not_found", "mismatch")
+            row_class = "" if is_problem else " class='row-ok'"
             title = _html_escape(
                 vr.reference.title or vr.reference.raw_text or "(no title)"
             )
@@ -382,14 +418,54 @@ def write_batch_report(
                 )
 
             parts.append(
-                f"<tr><td>{idx}</td>"
+                f"<tr{row_class}><td>{idx}</td>"
                 f"<td><span class='badge {css_class}'>{status_label}</span></td>"
                 f"<td>{title}</td>"
                 f"<td>{match_cell}</td>"
                 f"<td>{score_cell}</td></tr>\n"
             )
 
-            if verbose:
+            # Always show full details for not-found/mismatch citations
+            if is_problem:
+                parts.append(
+                    f"<tr><td></td><td colspan='4'>"
+                    f"<dl class='ref-detail'>"
+                )
+                if vr.reference.authors:
+                    parts.append(
+                        f"<dt>Authors:</dt><dd>{_html_escape(', '.join(vr.reference.authors))}</dd>"
+                    )
+                if vr.reference.year:
+                    parts.append(
+                        f"<dt>Year:</dt><dd>{vr.reference.year}</dd>"
+                    )
+                if vr.reference.doi:
+                    parts.append(
+                        f"<dt>DOI:</dt><dd>{_html_escape(vr.reference.doi)}</dd>"
+                    )
+                if vr.reference.raw_text:
+                    parts.append(
+                        f"<dt>Raw text:</dt><dd>{_html_escape(vr.reference.raw_text)}</dd>"
+                    )
+                if vr.best_match:
+                    bm = vr.best_match
+                    parts.append(
+                        f"<dt>Best match:</dt><dd>{_html_escape(bm.title)}"
+                        f" [{_html_escape(bm.source)}]</dd>"
+                    )
+                    if bm.authors:
+                        parts.append(
+                            f"<dt>Match authors:</dt><dd>{_html_escape(', '.join(bm.authors))}</dd>"
+                        )
+                    if bm.year:
+                        parts.append(
+                            f"<dt>Match year:</dt><dd>{bm.year}</dd>"
+                        )
+                parts.append(
+                    f"<dt>Details:</dt><dd>{_html_escape(vr.details)}</dd>"
+                )
+                parts.append("</dl></td></tr>\n")
+            elif verbose:
                 detail_parts = []
                 if vr.reference.authors:
                     detail_parts.append(
@@ -411,7 +487,7 @@ def write_batch_report(
                 )
                 detail_html = "<br>".join(detail_parts)
                 parts.append(
-                    f"<tr><td></td><td colspan='4'>"
+                    f"<tr class='row-ok'><td></td><td colspan='4'>"
                     f"<span class='match-info'>{detail_html}</span>"
                     f"</td></tr>\n"
                 )
