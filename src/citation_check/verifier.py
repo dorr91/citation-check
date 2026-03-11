@@ -8,6 +8,7 @@ from collections.abc import Callable
 
 import httpx
 
+from citation_check.clients import retry_on_rate_limit
 from citation_check.clients.crossref import search_crossref
 from citation_check.clients.openalex import search_openalex
 from citation_check.clients.semantic_scholar import search_semantic_scholar
@@ -65,12 +66,17 @@ async def _lookup_doi_crossref(
     if mailto:
         params["mailto"] = mailto
 
-    try:
+    @retry_on_rate_limit
+    async def _fetch():
         async with httpx.AsyncClient(timeout=15.0) as client:
             resp = await client.get(url, params=params)
             resp.raise_for_status()
-            data = resp.json()
-            item = data["message"]
+            return resp
+
+    try:
+        resp = await _fetch()
+        data = resp.json()
+        item = data["message"]
     except (httpx.HTTPError, ValueError, KeyError) as exc:
         logger.warning("DOI lookup failed for %r: %s", doi, exc)
         return []
