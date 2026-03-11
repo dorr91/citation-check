@@ -61,13 +61,20 @@ GROBID must be running at `http://localhost:8070` before you can verify papers.
 ## Usage
 
 ```bash
-uv run citation-check verify paper.pdf
+uv run citation-check verify paper.pdf --mailto you@example.com
 ```
+
+The `--mailto` flag is **required**. Crossref and OpenAlex offer faster "polite
+pool" access to clients that identify themselves with a contact email. Providing
+a real email is how we respect their terms of use — they provide these APIs for
+free, and identifying ourselves lets them contact us if our usage causes
+problems.
 
 ### Options
 
 | Flag | Description |
 |---|---|
+| `--mailto EMAIL` | **(required)** Contact email sent to Crossref and OpenAlex |
 | `--verbose` / `-v` | Show detailed match scores (author similarity, year match) |
 | `--output json` | Machine-readable JSON instead of the default colored table |
 | `--grobid-url URL` | Custom GROBID server URL (default: `http://localhost:8070`) |
@@ -77,13 +84,13 @@ uv run citation-check verify paper.pdf
 
 ```bash
 # Verbose table output
-uv run citation-check verify paper.pdf -v
+uv run citation-check verify paper.pdf --mailto you@example.com -v
 
 # JSON output for scripting
-uv run citation-check verify paper.pdf --output json
+uv run citation-check verify paper.pdf --mailto you@example.com --output json
 
 # Skip references 1 and 4 (0-indexed)
-uv run citation-check verify paper.pdf --skip-indices 0,3
+uv run citation-check verify paper.pdf --mailto you@example.com --skip-indices 0,3
 ```
 
 ### Understanding the Output

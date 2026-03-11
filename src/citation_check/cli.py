@@ -34,19 +34,40 @@ def main():
     default=None,
     help="Comma-separated list of reference indices to skip (e.g. 0,3,5)",
 )
-def verify(pdf_path, grobid_url, verbose, output_format, skip_indices):
+@click.option(
+    "--mailto",
+    required=True,
+    help="Contact email for API polite pools (Crossref, OpenAlex)",
+)
+def verify(
+    pdf_path, grobid_url, verbose, output_format, skip_indices, mailto,
+):
     """Verify citations in a PDF paper."""
-    asyncio.run(_verify(pdf_path, grobid_url, verbose, output_format, skip_indices))
+    asyncio.run(
+        _verify(
+            pdf_path, grobid_url, verbose,
+            output_format, skip_indices, mailto,
+        )
+    )
 
 
-async def _verify(pdf_path, grobid_url, verbose, output_format, skip_indices=None):
+async def _verify(
+    pdf_path, grobid_url, verbose, output_format,
+    skip_indices=None, mailto=None,
+):
     # Parse skip indices
     skip_set: set[int] = set()
     if skip_indices:
         try:
-            skip_set = {int(x.strip()) for x in skip_indices.split(",")}
+            skip_set = {
+                int(x.strip()) for x in skip_indices.split(",")
+            }
         except ValueError:
-            click.echo("Error: --skip-indices must be comma-separated integers", err=True)
+            click.echo(
+                "Error: --skip-indices must be"
+                " comma-separated integers",
+                err=True,
+            )
             raise SystemExit(1)
 
     # 1. Check GROBID is running
@@ -69,7 +90,7 @@ async def _verify(pdf_path, grobid_url, verbose, output_format, skip_indices=Non
 
     # 3. Verify all references
     click.echo("Verifying references...")
-    results = await verify_all(references)
+    results = await verify_all(references, mailto=mailto)
 
     # 4. Output results
     if output_format == "json":

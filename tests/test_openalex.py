@@ -1,7 +1,6 @@
 """Tests for the OpenAlex API client."""
 from __future__ import annotations
 
-import httpx
 import pytest
 from pytest_httpx import HTTPXMock
 
@@ -46,10 +45,6 @@ async def test_successful_search(httpx_mock: HTTPXMock) -> None:
         },
     )
     httpx_mock.add_response(
-        url=httpx.URL(
-            "https://api.openalex.org/works",
-            params={"search": "deep learning", "per_page": "3", "mailto": "citation-check@example.com"},
-        ),
         json={"results": [work]},
     )
 

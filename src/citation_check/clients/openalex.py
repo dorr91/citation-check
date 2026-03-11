@@ -12,7 +12,7 @@ _DOI_PREFIX = "https://doi.org/"
 
 async def search_openalex(
     title: str,
-    mailto: str = "citation-check@example.com",
+    mailto: str | None = None,
     max_results: int = 3,
 ) -> list[SearchResult]:
     """Search OpenAlex for works matching *title*.
@@ -20,11 +20,12 @@ async def search_openalex(
     Returns up to *max_results* :class:`SearchResult` objects.
     On any HTTP or parsing error the function returns an empty list.
     """
-    params = {
+    params: dict[str, str | int] = {
         "search": title,
         "per_page": max_results,
-        "mailto": mailto,
     }
+    if mailto:
+        params["mailto"] = mailto
 
     @retry_on_rate_limit
     async def _fetch():
@@ -55,9 +56,10 @@ async def search_openalex(
         doi_raw = work.get("doi")
         doi: str | None = None
         if doi_raw:
-            doi = (
-                doi_raw.removeprefix(_DOI_PREFIX) if doi_raw.startswith(_DOI_PREFIX) else doi_raw
-            )
+            if doi_raw.startswith(_DOI_PREFIX):
+                doi = doi_raw.removeprefix(_DOI_PREFIX)
+            else:
+                doi = doi_raw
 
         # Venue – any level can be None
         venue: str | None = None

@@ -54,7 +54,9 @@ def test_verify_fails_when_grobid_not_running(tmp_path):
     with patch(
         "citation_check.cli.check_grobid", new_callable=AsyncMock, return_value=False
     ):
-        result = runner.invoke(main, ["verify", str(pdf)])
+        result = runner.invoke(
+            main, ["verify", str(pdf), "--mailto", "test@test.com"],
+        )
 
     assert result.exit_code != 0
     assert "GROBID is not running" in result.output or "GROBID is not running" in (result.stderr or "")
@@ -86,7 +88,9 @@ def test_json_output_with_mocked_data(tmp_path):
             return_value=results,
         ),
     ):
-        result = runner.invoke(main, ["verify", str(pdf), "--output", "json"])
+        result = runner.invoke(
+            main, ["verify", str(pdf), "--output", "json", "--mailto", "test@test.com"],
+        )
 
     assert result.exit_code == 0
     data = json.loads(result.output.split("\n", 3)[3])  # skip the echo lines
@@ -121,7 +125,9 @@ def test_table_output_with_mocked_data(tmp_path):
             return_value=results,
         ),
     ):
-        result = runner.invoke(main, ["verify", str(pdf)])
+        result = runner.invoke(
+            main, ["verify", str(pdf), "--mailto", "test@test.com"],
+        )
 
     assert result.exit_code == 0
     assert "references verified" in result.output

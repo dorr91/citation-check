@@ -192,7 +192,7 @@ def test_skip_indices_filters_references(tmp_path):
     # We capture what verify_all receives
     captured_refs = []
 
-    async def mock_verify_all(references):
+    async def mock_verify_all(references, **kwargs):
         captured_refs.extend(references)
         return [
             VerificationResult(
@@ -225,7 +225,11 @@ def test_skip_indices_filters_references(tmp_path):
         ),
     ):
         result = runner.invoke(
-            main, ["verify", str(pdf), "--skip-indices", "0,2"]
+            main, [
+                "verify", str(pdf),
+                "--skip-indices", "0,2",
+                "--mailto", "test@test.com",
+            ],
         )
 
     assert result.exit_code == 0

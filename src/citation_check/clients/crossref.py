@@ -16,7 +16,7 @@ CROSSREF_API_URL = "https://api.crossref.org/works"
 
 async def search_crossref(
     title: str,
-    mailto: str = "citation-check@example.com",
+    mailto: str | None = None,
     max_results: int = 3,
 ) -> list[SearchResult]:
     """Search Crossref for papers matching the given title.
@@ -29,11 +29,12 @@ async def search_crossref(
     Returns:
         A list of SearchResult objects, or an empty list on error.
     """
-    params = {
+    params: dict[str, str] = {
         "query.bibliographic": title,
         "rows": str(max_results),
-        "mailto": mailto,
     }
+    if mailto:
+        params["mailto"] = mailto
 
     @retry_on_rate_limit
     async def _fetch():
