@@ -115,8 +115,8 @@ async def _verify(
 @click.option(
     "--output-file",
     "-o",
-    default="report.txt",
-    help="Output file path for the full report (default: report.txt)",
+    default="report.html",
+    help="Output file path for the full report (default: report.html)",
 )
 @click.option(
     "--mailto",

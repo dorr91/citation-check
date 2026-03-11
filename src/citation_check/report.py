@@ -213,6 +213,23 @@ PLAIN_STATUS = {
     "mismatch": "MISMATCH",
 }
 
+STATUS_CSS_CLASS = {
+    "verified": "verified",
+    "close_match": "close",
+    "not_found": "not-found",
+    "mismatch": "not-found",
+}
+
+
+def _html_escape(text: str) -> str:
+    """Escape HTML special characters."""
+    return (
+        text.replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace('"', "&quot;")
+    )
+
 
 def write_batch_report(
     paper_results: list[tuple[str, list[VerificationResult]]],
@@ -220,20 +237,69 @@ def write_batch_report(
     output_path: str,
     verbose: bool = False,
 ) -> None:
-    """Write a full plain-text report to a file."""
-    lines: list[str] = []
-    lines.append("=" * 72)
-    lines.append("CITATION VERIFICATION REPORT")
-    lines.append("=" * 72)
-    lines.append("")
+    """Write a full HTML report to a file."""
+    parts: list[str] = []
+
+    parts.append("""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Citation Verification Report</title>
+<style>
+  :root {
+    --green: #22863a;
+    --yellow: #b08800;
+    --red: #cb2431;
+    --bg: #ffffff;
+    --bg-alt: #f6f8fa;
+    --border: #d0d7de;
+    --text: #1f2328;
+    --text-dim: #656d76;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    color: var(--text);
+    background: var(--bg);
+    line-height: 1.5;
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 2rem 1rem;
+  }
+  h1 { font-size: 1.5rem; margin-bottom: 1.5rem; }
+  h2 { font-size: 1.2rem; margin: 2rem 0 0.75rem; border-bottom: 1px solid var(--border); padding-bottom: 0.4rem; }
+  table { width: 100%; border-collapse: collapse; margin-bottom: 1rem; font-size: 0.9rem; }
+  th, td { text-align: left; padding: 0.4rem 0.75rem; border-bottom: 1px solid var(--border); }
+  th { background: var(--bg-alt); font-weight: 600; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .badge {
+    display: inline-block;
+    padding: 0.1rem 0.5rem;
+    border-radius: 1rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+  }
+  .badge.verified { background: #dafbe1; color: var(--green); }
+  .badge.close { background: #fff8c5; color: var(--yellow); }
+  .badge.not-found { background: #ffebe9; color: var(--red); }
+  .match-info { color: var(--text-dim); font-size: 0.85rem; }
+  .score { font-size: 0.85rem; color: var(--text-dim); }
+  .totals td { font-weight: 600; border-top: 2px solid var(--border); }
+  .error-row td { color: var(--red); }
+  details { margin-bottom: 0.5rem; }
+  details summary { cursor: pointer; font-weight: 500; padding: 0.25rem 0; }
+</style>
+</head>
+<body>
+<h1>Citation Verification Report</h1>
+""")
 
     # Summary table
-    lines.append("SUMMARY")
-    lines.append("-" * 72)
-    lines.append(
-        f"{'Paper':<40} {'Refs':>6} {'Exact':>7} {'Close':>7} {'NotFnd':>7}"
-    )
-    lines.append("-" * 72)
+    parts.append("<h2>Summary</h2>\n<table>\n<tr>")
+    parts.append("<th>Paper</th><th class='num'>Refs</th>")
+    parts.append("<th class='num'>Exact</th><th class='num'>Close</th>")
+    parts.append("<th class='num'>Not Found</th></tr>\n")
 
     total_refs = 0
     total_match = 0
@@ -246,80 +312,124 @@ def write_batch_report(
         total_match += n_match
         total_close += n_close
         total_not_found += n_not_found
-        display_name = name if len(name) <= 38 else name[:35] + "..."
+        esc_name = _html_escape(name)
+
+        parts.append(f"<tr><td>{esc_name}</td><td class='num'>{n_total}</td>")
         if n_total == 0:
-            lines.append(
-                f"{display_name:<40} {'0':>6} {'-':>7} {'-':>7} {'-':>7}"
+            parts.append(
+                "<td class='num'>-</td><td class='num'>-</td>"
+                "<td class='num'>-</td></tr>\n"
             )
         else:
-            lines.append(
-                f"{display_name:<40} {n_total:>6} {n_match:>7}"
-                f" {n_close:>7} {n_not_found:>7}"
+            parts.append(
+                f"<td class='num'>{n_match}</td>"
+                f"<td class='num'>{n_close}</td>"
+                f"<td class='num'>{n_not_found}</td></tr>\n"
             )
 
     for name, _ in errors:
-        display_name = name if len(name) <= 38 else name[:35] + "..."
-        lines.append(f"{display_name:<40} {'ERROR':>6}")
+        esc_name = _html_escape(name)
+        parts.append(
+            f"<tr class='error-row'><td>{esc_name}</td>"
+            "<td class='num'>ERROR</td>"
+            "<td></td><td></td><td></td></tr>\n"
+        )
 
-    lines.append("-" * 72)
-    lines.append(
-        f"{'TOTAL':<40} {total_refs:>6} {total_match:>7}"
-        f" {total_close:>7} {total_not_found:>7}"
+    parts.append(
+        f"<tr class='totals'><td>Total</td>"
+        f"<td class='num'>{total_refs}</td>"
+        f"<td class='num'>{total_match}</td>"
+        f"<td class='num'>{total_close}</td>"
+        f"<td class='num'>{total_not_found}</td></tr>\n"
     )
-    lines.append("")
+    parts.append("</table>\n")
 
     # Per-paper details
     for name, results in paper_results:
-        lines.append("=" * 72)
-        lines.append(f"PAPER: {name}")
-        lines.append("=" * 72)
+        esc_name = _html_escape(name)
+        parts.append(f"<h2>{esc_name}</h2>\n")
 
         if not results:
-            lines.append("  No references found.")
-            lines.append("")
+            parts.append("<p>No references found.</p>\n")
             continue
+
+        parts.append("<table>\n<tr><th>#</th><th>Status</th>")
+        parts.append("<th>Reference</th><th>Best Match</th><th>Score</th></tr>\n")
 
         for vr in results:
             idx = vr.reference.index + 1
-            status = PLAIN_STATUS.get(vr.status, vr.status)
-            title = vr.reference.title or vr.reference.raw_text or "(no title)"
-            lines.append(f"  [{idx}] {status}: {title}")
+            status_label = PLAIN_STATUS.get(vr.status, vr.status)
+            css_class = STATUS_CSS_CLASS.get(vr.status, "")
+            title = _html_escape(
+                vr.reference.title or vr.reference.raw_text or "(no title)"
+            )
 
+            match_cell = "-"
+            score_cell = ""
             if vr.best_match:
                 bm = vr.best_match
-                lines.append(
-                    f"      Match: {bm.title} [{bm.source}]"
+                match_cell = _html_escape(bm.title)
+                if bm.source:
+                    match_cell += (
+                        f" <span class='match-info'>[{_html_escape(bm.source)}]</span>"
+                    )
+                score_cell = (
+                    f"<span class='score'>"
+                    f"title {vr.title_score:.0f}%"
+                    f" &middot; author {vr.author_score:.0f}%"
+                    f" &middot; year {'&#10003;' if vr.year_match else '&#10007;'}"
+                    f"</span>"
                 )
-                lines.append(
-                    f"      Score: title={vr.title_score:.0f}%"
-                    f" author={vr.author_score:.0f}%"
-                    f" year={'yes' if vr.year_match else 'no'}"
-                )
+
+            parts.append(
+                f"<tr><td>{idx}</td>"
+                f"<td><span class='badge {css_class}'>{status_label}</span></td>"
+                f"<td>{title}</td>"
+                f"<td>{match_cell}</td>"
+                f"<td>{score_cell}</td></tr>\n"
+            )
 
             if verbose:
+                detail_parts = []
                 if vr.reference.authors:
-                    lines.append(
-                        f"      Authors: {', '.join(vr.reference.authors)}"
+                    detail_parts.append(
+                        f"Authors: {_html_escape(', '.join(vr.reference.authors))}"
                     )
                 if vr.reference.year:
-                    lines.append(f"      Year: {vr.reference.year}")
+                    detail_parts.append(f"Year: {vr.reference.year}")
                 if vr.reference.doi:
-                    lines.append(f"      DOI: {vr.reference.doi}")
-                if vr.best_match and vr.best_match.authors:
-                    lines.append(
-                        f"      Match authors: {', '.join(vr.best_match.authors)}"
+                    detail_parts.append(
+                        f"DOI: {_html_escape(vr.reference.doi)}"
                     )
-                lines.append(f"      Details: {vr.details}")
+                if vr.best_match and vr.best_match.authors:
+                    detail_parts.append(
+                        f"Match authors: "
+                        f"{_html_escape(', '.join(vr.best_match.authors))}"
+                    )
+                detail_parts.append(
+                    f"Details: {_html_escape(vr.details)}"
+                )
+                detail_html = "<br>".join(detail_parts)
+                parts.append(
+                    f"<tr><td></td><td colspan='4'>"
+                    f"<span class='match-info'>{detail_html}</span>"
+                    f"</td></tr>\n"
+                )
 
-        lines.append("")
+        parts.append("</table>\n")
 
     # Errors section
     if errors:
-        lines.append("=" * 72)
-        lines.append("ERRORS")
-        lines.append("=" * 72)
+        parts.append("<h2>Errors</h2>\n<table>\n")
+        parts.append("<tr><th>Paper</th><th>Error</th></tr>\n")
         for name, err in errors:
-            lines.append(f"  {name}: {err}")
-        lines.append("")
+            parts.append(
+                f"<tr class='error-row'>"
+                f"<td>{_html_escape(name)}</td>"
+                f"<td>{_html_escape(err)}</td></tr>\n"
+            )
+        parts.append("</table>\n")
 
-    Path(output_path).write_text("\n".join(lines) + "\n")
+    parts.append("</body>\n</html>\n")
+
+    Path(output_path).write_text("".join(parts))
