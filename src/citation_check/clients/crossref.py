@@ -6,6 +6,7 @@ import logging
 
 import httpx
 
+from citation_check.clients import retry_on_rate_limit
 from citation_check.models import SearchResult
 
 logger = logging.getLogger(__name__)
@@ -34,10 +35,15 @@ async def search_crossref(
         "mailto": mailto,
     }
 
-    try:
+    @retry_on_rate_limit
+    async def _fetch():
         async with httpx.AsyncClient(timeout=15.0) as client:
             response = await client.get(CROSSREF_API_URL, params=params)
             response.raise_for_status()
+            return response
+
+    try:
+        response = await _fetch()
     except (httpx.HTTPStatusError, httpx.TimeoutException, httpx.RequestError) as exc:
         logger.warning("Crossref search failed for %r: %s", title, exc)
         return []

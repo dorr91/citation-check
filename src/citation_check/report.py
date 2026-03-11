@@ -48,7 +48,12 @@ def print_report(
         style = STATUS_STYLES.get(vr.status, "")
         status_text = STATUS_ICONS.get(vr.status, vr.status)
 
-        ref_title = _truncate(vr.reference.title or "(no title)")
+        if vr.reference.title:
+            ref_title = _truncate(vr.reference.title)
+        elif vr.reference.raw_text:
+            ref_title = _truncate(f"\\[raw] {vr.reference.raw_text}")
+        else:
+            ref_title = "(no title)"
 
         if vr.best_match:
             match_text = _truncate(vr.best_match.title)

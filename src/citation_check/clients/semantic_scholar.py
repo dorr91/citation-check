@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import httpx
 
+from citation_check.clients import retry_on_rate_limit
 from citation_check.models import SearchResult
 
 _BASE_URL = "https://api.semanticscholar.org/graph/v1/paper/search"
@@ -19,7 +20,8 @@ async def search_semantic_scholar(
     Returns up to *max_results* :class:`SearchResult` objects.
     On any network or API error an empty list is returned.
     """
-    try:
+    @retry_on_rate_limit
+    async def _fetch():
         async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
             resp = await client.get(
                 _BASE_URL,
@@ -30,7 +32,11 @@ async def search_semantic_scholar(
                 },
             )
             resp.raise_for_status()
-            data = resp.json()
+            return resp
+
+    try:
+        resp = await _fetch()
+        data = resp.json()
     except (httpx.HTTPError, ValueError):
         return []
 
