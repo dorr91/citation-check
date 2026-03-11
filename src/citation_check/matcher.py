@@ -28,6 +28,8 @@ def _try_strip_subtitle(a: str, b: str) -> float:
 
 def match_title(ref_title: str, result_title: str) -> float:
     """Return a 0-100 similarity score between two titles."""
+    if not ref_title or not result_title:
+        return 0.0
     ref_lower = ref_title.lower()
     result_lower = result_title.lower()
     score = fuzz.token_sort_ratio(ref_lower, result_lower)
@@ -54,8 +56,11 @@ def match_authors(ref_authors: list[str], result_authors: list[str]) -> float:
     if not ref_authors or not result_authors:
         return 100.0
 
-    ref_set = {_normalize_last_name(a) for a in ref_authors}
-    result_set = {_normalize_last_name(a) for a in result_authors}
+    ref_set = {_normalize_last_name(a) for a in ref_authors if a}
+    result_set = {_normalize_last_name(a) for a in result_authors if a}
+
+    if not ref_set or not result_set:
+        return 100.0
 
     intersection = ref_set & result_set
     denominator = max(len(ref_set), len(result_set))
