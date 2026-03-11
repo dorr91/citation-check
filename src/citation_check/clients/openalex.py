@@ -71,7 +71,7 @@ async def search_openalex(
 
         results.append(
             SearchResult(
-                title=work.get("title", ""),
+                title=work.get("title") or "",
                 authors=authors,
                 year=work.get("publication_year"),
                 venue=venue,
