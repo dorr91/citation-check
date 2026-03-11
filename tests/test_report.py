@@ -156,11 +156,11 @@ def test_write_batch_report(tmp_path):
             _make_result(status="mismatch", index=1, title="Bad Cite"),
         ]),
     ]
-    out_file = tmp_path / "report.txt"
+    out_file = tmp_path / "report.html"
     write_batch_report(paper_results, errors=[], output_path=str(out_file))
     text = out_file.read_text()
-    assert "CITATION VERIFICATION REPORT" in text
-    assert "SUMMARY" in text
+    assert "Citation Verification Report" in text
+    assert "<html" in text
     assert "paper1.pdf" in text
     assert "paper2.pdf" in text
     assert "VERIFIED" in text
@@ -172,7 +172,7 @@ def test_write_batch_report_verbose(tmp_path):
     paper_results = [
         ("paper.pdf", [_make_result(status="verified", index=0)]),
     ]
-    out_file = tmp_path / "report.txt"
+    out_file = tmp_path / "report.html"
     write_batch_report(
         paper_results, errors=[], output_path=str(out_file), verbose=True,
     )
