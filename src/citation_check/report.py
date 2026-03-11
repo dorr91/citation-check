@@ -139,12 +139,12 @@ def print_report(
 def _paper_stats(
     results: list[VerificationResult],
 ) -> tuple[int, int, int, int]:
-    """Return (total, verified, close_match, flagged) counts."""
+    """Return (total, match, close_match, not_found) counts."""
     total = len(results)
-    verified = sum(1 for r in results if r.status == "verified")
+    match = sum(1 for r in results if r.status == "verified")
     close = sum(1 for r in results if r.status == "close_match")
-    flagged = total - verified
-    return total, verified, close, flagged
+    not_found = total - match - close
+    return total, match, close, not_found
 
 
 def print_batch_summary(
@@ -159,43 +159,48 @@ def print_batch_summary(
     table = Table(title="Batch Summary")
     table.add_column("Paper", min_width=30)
     table.add_column("Refs", width=6, justify="right")
-    table.add_column("Verified", width=10, justify="right")
-    table.add_column("Flagged", width=10, justify="right")
+    table.add_column("Exact", width=7, justify="right")
+    table.add_column("Close", width=7, justify="right")
+    table.add_column("Not Found", width=11, justify="right")
 
     total_refs = 0
-    total_verified = 0
-    total_flagged = 0
+    total_match = 0
+    total_close = 0
+    total_not_found = 0
 
     for name, results in paper_results:
-        n_total, n_verified, _, n_flagged = _paper_stats(results)
+        n_total, n_match, n_close, n_not_found = _paper_stats(results)
         total_refs += n_total
-        total_verified += n_verified
-        total_flagged += n_flagged
+        total_match += n_match
+        total_close += n_close
+        total_not_found += n_not_found
 
         if n_total == 0:
-            table.add_row(name, "0", "-", "-")
-        elif n_flagged == 0:
+            table.add_row(name, "0", "-", "-", "-")
+        elif n_not_found == 0 and n_close == 0:
             table.add_row(
                 name,
                 str(n_total),
-                f"[green]{n_verified}[/green]",
+                f"[green]{n_match}[/green]",
+                "0",
                 "0",
             )
         else:
             table.add_row(
                 name,
                 str(n_total),
-                f"[green]{n_verified}[/green]",
-                f"[red]{n_flagged}[/red]",
+                f"[green]{n_match}[/green]",
+                f"[yellow]{n_close}[/yellow]" if n_close else "0",
+                f"[red]{n_not_found}[/red]" if n_not_found else "0",
             )
 
     for name, err in errors:
-        table.add_row(f"[red]{name}[/red]", "[red]error[/red]", "", "")
+        table.add_row(f"[red]{name}[/red]", "[red]error[/red]", "", "", "")
 
     console.print(table)
     console.print(
-        f"\nTotal: {total_verified}/{total_refs} verified,"
-        f" {total_flagged} flagged across {len(paper_results)} paper(s)"
+        f"\nTotal: {total_match} exact, {total_close} close,"
+        f" {total_not_found} not found across {len(paper_results)} paper(s)"
     )
     if errors:
         console.print(f"[red]{len(errors)} paper(s) failed to process[/red]")
@@ -225,24 +230,31 @@ def write_batch_report(
     # Summary table
     lines.append("SUMMARY")
     lines.append("-" * 72)
-    lines.append(f"{'Paper':<40} {'Refs':>6} {'OK':>6} {'Flag':>6}")
+    lines.append(
+        f"{'Paper':<40} {'Refs':>6} {'Exact':>7} {'Close':>7} {'NotFnd':>7}"
+    )
     lines.append("-" * 72)
 
     total_refs = 0
-    total_verified = 0
-    total_flagged = 0
+    total_match = 0
+    total_close = 0
+    total_not_found = 0
 
     for name, results in paper_results:
-        n_total, n_verified, _, n_flagged = _paper_stats(results)
+        n_total, n_match, n_close, n_not_found = _paper_stats(results)
         total_refs += n_total
-        total_verified += n_verified
-        total_flagged += n_flagged
+        total_match += n_match
+        total_close += n_close
+        total_not_found += n_not_found
         display_name = name if len(name) <= 38 else name[:35] + "..."
         if n_total == 0:
-            lines.append(f"{display_name:<40} {'0':>6} {'-':>6} {'-':>6}")
+            lines.append(
+                f"{display_name:<40} {'0':>6} {'-':>7} {'-':>7} {'-':>7}"
+            )
         else:
             lines.append(
-                f"{display_name:<40} {n_total:>6} {n_verified:>6} {n_flagged:>6}"
+                f"{display_name:<40} {n_total:>6} {n_match:>7}"
+                f" {n_close:>7} {n_not_found:>7}"
             )
 
     for name, _ in errors:
@@ -251,7 +263,8 @@ def write_batch_report(
 
     lines.append("-" * 72)
     lines.append(
-        f"{'TOTAL':<40} {total_refs:>6} {total_verified:>6} {total_flagged:>6}"
+        f"{'TOTAL':<40} {total_refs:>6} {total_match:>7}"
+        f" {total_close:>7} {total_not_found:>7}"
     )
     lines.append("")
 
