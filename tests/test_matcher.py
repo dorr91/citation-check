@@ -66,6 +66,14 @@ def test_match_title_both_have_colons():
     assert score < 85
 
 
+def test_match_title_none_inputs():
+    """None or empty titles should return 0.0, not raise."""
+    assert match_title(None, "Some Title") == 0.0
+    assert match_title("Some Title", None) == 0.0
+    assert match_title("", "Some Title") == 0.0
+    assert match_title("Some Title", "") == 0.0
+
+
 def test_match_title_completely_different():
     score = match_title("Attention Is All You Need", "The Theory of Relativity")
     assert score < 40
@@ -102,6 +110,18 @@ def test_match_authors_one_empty():
 
 def test_match_authors_accented_names():
     score = match_authors(["José García"], ["Jose Garcia"])
+    assert score == 100.0
+
+
+def test_match_authors_all_none_entries():
+    """Lists with only None entries should not cause ZeroDivisionError."""
+    assert match_authors([None], [None]) == 100.0
+    assert match_authors([None, None], ["John Smith"]) == 100.0
+
+
+def test_match_authors_mixed_none_entries():
+    """None entries should be filtered out, remaining authors still compared."""
+    score = match_authors([None, "John Smith"], ["John Smith"])
     assert score == 100.0
 
 

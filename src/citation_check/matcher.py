@@ -59,6 +59,9 @@ def match_authors(ref_authors: list[str], result_authors: list[str]) -> float:
     ref_set = {_normalize_last_name(a) for a in ref_authors if a}
     result_set = {_normalize_last_name(a) for a in result_authors if a}
 
+    if not ref_set or not result_set:
+        return 100.0
+
     intersection = ref_set & result_set
     denominator = max(len(ref_set), len(result_set))
     return (len(intersection) / denominator) * 100
