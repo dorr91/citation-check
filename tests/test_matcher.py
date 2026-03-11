@@ -20,6 +20,14 @@ def test_match_title_similar():
     assert score > 80
 
 
+def test_match_title_case_insensitive():
+    score = match_title(
+        "Framing bias: Media in the distribution of power",
+        "Framing Bias: Media in the Distribution of Power",
+    )
+    assert score == 100.0
+
+
 def test_match_title_completely_different():
     score = match_title("Attention Is All You Need", "The Theory of Relativity")
     assert score < 40
