@@ -302,11 +302,16 @@ def write_batch_report(
   .toggle-btn:hover { background: #eaeef2; }
   .row-ok { display: none; }
   .show-all .row-ok { display: table-row; }
-  .ref-detail { color: var(--text-dim); font-size: 0.85rem; line-height: 1.6; padding-top: 0.15rem; }
-  .ref-detail dt { display: inline; font-weight: 600; }
-  .ref-detail dt::after { content: " "; }
-  .ref-detail dd { display: inline; margin: 0; }
-  .ref-detail dd::after { content: ""; display: block; }
+  .detail-row td { padding-top: 0; }
+  .detail-columns { display: flex; gap: 1.5rem; }
+  .detail-section { flex: 1; font-size: 0.85rem; color: var(--text-dim); line-height: 1.6; padding: 0.4rem 0.6rem; border-radius: 0.375rem; background: var(--bg-alt); }
+  .detail-section h4 { font-size: 0.8rem; color: var(--text); margin: 0 0 0.2rem; text-transform: uppercase; letter-spacing: 0.03em; }
+  .detail-section dl { margin: 0; }
+  .detail-section dt { display: inline; font-weight: 600; }
+  .detail-section dt::after { content: " "; }
+  .detail-section dd { display: inline; margin: 0; }
+  .detail-section dd::after { content: ""; display: block; }
+  .detail-section.match-section { border-left: 3px solid var(--border); }
 </style>
 </head>
 <body>
@@ -428,9 +433,11 @@ def write_batch_report(
             # Always show full details for not-found/mismatch citations
             if is_problem:
                 parts.append(
-                    f"<tr><td></td><td colspan='4'>"
-                    f"<dl class='ref-detail'>"
+                    f"<tr class='detail-row'><td></td><td colspan='4'>"
+                    f"<div class='detail-columns'>"
                 )
+                # Source citation section
+                parts.append("<div class='detail-section'><h4>Source</h4><dl>")
                 if vr.reference.authors:
                     parts.append(
                         f"<dt>Authors:</dt><dd>{_html_escape(', '.join(vr.reference.authors))}</dd>"
@@ -447,24 +454,46 @@ def write_batch_report(
                     parts.append(
                         f"<dt>Raw text:</dt><dd>{_html_escape(vr.reference.raw_text)}</dd>"
                     )
+                parts.append("</dl></div>")
+                # Best match section
                 if vr.best_match:
                     bm = vr.best_match
                     parts.append(
-                        f"<dt>Best match:</dt><dd>{_html_escape(bm.title)}"
+                        "<div class='detail-section match-section'>"
+                        "<h4>Best Match</h4><dl>"
+                    )
+                    parts.append(
+                        f"<dt>Title:</dt><dd>{_html_escape(bm.title)}"
                         f" [{_html_escape(bm.source)}]</dd>"
                     )
                     if bm.authors:
                         parts.append(
-                            f"<dt>Match authors:</dt><dd>{_html_escape(', '.join(bm.authors))}</dd>"
+                            f"<dt>Authors:</dt><dd>{_html_escape(', '.join(bm.authors))}</dd>"
                         )
                     if bm.year:
                         parts.append(
-                            f"<dt>Match year:</dt><dd>{bm.year}</dd>"
+                            f"<dt>Year:</dt><dd>{bm.year}</dd>"
                         )
+                    parts.append(
+                        f"<dt>Scores:</dt><dd>"
+                        f"title {vr.title_score:.0f}%"
+                        f" &middot; author {vr.author_score:.0f}%"
+                        f" &middot; year {'&#10003;' if vr.year_match else '&#10007;'}"
+                        f"</dd>"
+                    )
+                    parts.append("</dl></div>")
+                else:
+                    parts.append(
+                        "<div class='detail-section match-section'>"
+                        "<h4>Best Match</h4>"
+                        "<p>No results from any source</p></div>"
+                    )
                 parts.append(
-                    f"<dt>Details:</dt><dd>{_html_escape(vr.details)}</dd>"
+                    f"</div>"
+                    f"<div class='match-info' style='margin-top:0.3rem'>"
+                    f"{_html_escape(vr.details)}</div>"
+                    f"</td></tr>\n"
                 )
-                parts.append("</dl></td></tr>\n")
             elif verbose:
                 detail_parts = []
                 if vr.reference.authors:
