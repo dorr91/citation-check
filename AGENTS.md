@@ -8,7 +8,7 @@ PDF citation verifier: GROBID extracts references, then checks them against Cros
 
 - `uv run pytest tests/ -v` — tests
 - `uv run ruff check src/ tests/` — lint
-- `uv run citation-check verify <paper.pdf>` — run tool
+- `uv run citation-check verify <paper.pdf> --mailto user@example.com` — run tool
 
 ## Testing
 
