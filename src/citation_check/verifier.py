@@ -2,11 +2,20 @@
 
 from __future__ import annotations
 
+import asyncio
+import logging
+
+import httpx
+
 from citation_check.clients.crossref import search_crossref
 from citation_check.clients.openalex import search_openalex
 from citation_check.clients.semantic_scholar import search_semantic_scholar
 from citation_check.matcher import score_match
 from citation_check.models import Reference, SearchResult, VerificationResult
+
+logger = logging.getLogger(__name__)
+
+_DELAY_BETWEEN_REFS = 0.2  # seconds between references to be polite to APIs
 
 
 def _not_found_result(reference: Reference, details: str) -> VerificationResult:
@@ -38,21 +47,91 @@ def _pick_best(
         else:
             vr_rank = _STATUS_RANK.get(vr.status, 0)
             best_rank = _STATUS_RANK.get(best.status, 0)
-            if vr_rank > best_rank or (vr_rank == best_rank and vr.title_score > best.title_score):
+            same_rank = vr_rank == best_rank
+            if vr_rank > best_rank or (
+                same_rank and vr.title_score > best.title_score
+            ):
                 best = vr
     return best
 
 
-async def verify_reference(reference: Reference) -> VerificationResult:
+async def _lookup_doi_crossref(
+    doi: str, mailto: str | None,
+) -> list[SearchResult]:
+    """Look up a specific DOI via Crossref."""
+    url = f"https://api.crossref.org/works/{doi}"
+    params = {}
+    if mailto:
+        params["mailto"] = mailto
+
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            resp = await client.get(url, params=params)
+            resp.raise_for_status()
+            data = resp.json()
+            item = data["message"]
+    except (httpx.HTTPError, ValueError, KeyError) as exc:
+        logger.warning("DOI lookup failed for %r: %s", doi, exc)
+        return []
+
+    try:
+        result_title = item["title"][0]
+    except (KeyError, IndexError):
+        return []
+
+    authors: list[str] = []
+    for author in item.get("author", []):
+        given = author.get("given", "")
+        family = author.get("family", "")
+        name = f"{given} {family}".strip()
+        if name:
+            authors.append(name)
+
+    year = None
+    for key in ("published-print", "published-online"):
+        try:
+            year = int(item[key]["date-parts"][0][0])
+            break
+        except (KeyError, IndexError, TypeError):
+            continue
+
+    venue_list = item.get("container-title", [])
+    venue = venue_list[0] if venue_list else None
+
+    return [
+        SearchResult(
+            title=result_title,
+            authors=authors,
+            year=year,
+            venue=venue,
+            doi=item.get("DOI"),
+            source="crossref",
+        )
+    ]
+
+
+async def verify_reference(
+    reference: Reference, mailto: str | None = None
+) -> VerificationResult:
     """Verify a single reference against Crossref, Semantic Scholar, and OpenAlex."""
     if not reference.title:
         return _not_found_result(reference, "No title to search for")
 
     title = reference.title
 
+    # 0. Direct DOI lookup if available (fast and accurate)
+    if reference.doi:
+        doi_results = await _lookup_doi_crossref(reference.doi, mailto)
+        best = _pick_best(None, doi_results, reference)
+        if best and best.status == "verified":
+            return best
+    else:
+        best = None
+
     # 1. Crossref
-    crossref_results = await search_crossref(title)
-    best = _pick_best(None, crossref_results, reference)
+    kwargs = {"mailto": mailto} if mailto else {}
+    crossref_results = await search_crossref(title, **kwargs)
+    best = _pick_best(best, crossref_results, reference)
     if best and best.status == "verified":
         return best
 
@@ -63,7 +142,7 @@ async def verify_reference(reference: Reference) -> VerificationResult:
         return best
 
     # 3. OpenAlex
-    oa_results = await search_openalex(title)
+    oa_results = await search_openalex(title, **kwargs)
     best = _pick_best(best, oa_results, reference)
 
     if best is not None:
@@ -72,10 +151,14 @@ async def verify_reference(reference: Reference) -> VerificationResult:
     return _not_found_result(reference, "No results from any API")
 
 
-async def verify_all(references: list[Reference]) -> list[VerificationResult]:
+async def verify_all(
+    references: list[Reference], mailto: str | None = None
+) -> list[VerificationResult]:
     """Verify all references sequentially to respect rate limits."""
     results: list[VerificationResult] = []
-    for ref in references:
-        vr = await verify_reference(ref)
+    for i, ref in enumerate(references):
+        if i > 0:
+            await asyncio.sleep(_DELAY_BETWEEN_REFS)
+        vr = await verify_reference(ref, mailto=mailto)
         results.append(vr)
     return results
