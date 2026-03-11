@@ -96,8 +96,8 @@ def test_match_authors_both_empty():
 
 
 def test_match_authors_one_empty():
-    assert match_authors([], ["John Smith"]) == 0.0
-    assert match_authors(["John Smith"], []) == 0.0
+    assert match_authors([], ["John Smith"]) == 100.0
+    assert match_authors(["John Smith"], []) == 100.0
 
 
 def test_match_authors_accented_names():
@@ -184,6 +184,13 @@ def test_score_match_close_match():
     result = _make_result(title="Attention Mechanisms in Deep Learning: A Survey", authors=["Someone Else"], year=2021)
     vr = score_match(ref, result)
     assert vr.status in ("close_match", "mismatch")
+
+
+def test_score_match_verified_when_result_has_no_authors():
+    ref = _make_ref()
+    result = _make_result(authors=[])
+    vr = score_match(ref, result)
+    assert vr.status == "verified"
 
 
 def test_score_match_no_title():

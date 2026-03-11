@@ -51,10 +51,8 @@ def _normalize_last_name(name: str) -> str:
 
 def match_authors(ref_authors: list[str], result_authors: list[str]) -> float:
     """Return a 0-100 author overlap score based on normalized last names."""
-    if not ref_authors and not result_authors:
-        return 100.0
     if not ref_authors or not result_authors:
-        return 0.0
+        return 100.0
 
     ref_set = {_normalize_last_name(a) for a in ref_authors}
     result_set = {_normalize_last_name(a) for a in result_authors}
