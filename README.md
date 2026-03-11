@@ -80,10 +80,26 @@ problems.
 | `--grobid-url URL` | Custom GROBID server URL (default: `http://localhost:8070`) |
 | `--skip-indices 0,3,5` | Skip specific references by 0-based index |
 
+### Batch directory mode
+
+To verify all PDFs in a directory at once:
+
+```bash
+uv run citation-check verify-dir ./papers/ --mailto you@example.com
+```
+
+This prints a summary table to the terminal and writes a detailed report file (default: `report.txt`).
+
+| Flag | Description |
+|---|---|
+| `--output-file` / `-o` | Report file path (default: `report.txt`) |
+| `--verbose` / `-v` | Include extra detail (authors, DOI, match details) in the report |
+| `--grobid-url URL` | Custom GROBID server URL (default: `http://localhost:8070`) |
+
 ### Examples
 
 ```bash
-# Verbose table output
+# Single paper, verbose table output
 uv run citation-check verify paper.pdf --mailto you@example.com -v
 
 # JSON output for scripting
@@ -91,6 +107,9 @@ uv run citation-check verify paper.pdf --mailto you@example.com --output json
 
 # Skip references 1 and 4 (0-indexed)
 uv run citation-check verify paper.pdf --mailto you@example.com --skip-indices 0,3
+
+# Batch: verify all PDFs in a directory
+uv run citation-check verify-dir ./papers/ --mailto you@example.com -o results.txt -v
 ```
 
 ### Understanding the Output

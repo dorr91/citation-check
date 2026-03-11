@@ -131,3 +131,85 @@ def test_table_output_with_mocked_data(tmp_path):
 
     assert result.exit_code == 0
     assert "references verified" in result.output
+
+
+def test_verify_dir_processes_multiple_pdfs(tmp_path):
+    """Test verify-dir processes all PDFs and writes a report file."""
+    # Create dummy PDFs
+    (tmp_path / "paper1.pdf").write_bytes(b"%PDF-1.4 dummy1")
+    (tmp_path / "paper2.pdf").write_bytes(b"%PDF-1.4 dummy2")
+    (tmp_path / "not_a_pdf.txt").write_text("ignore me")
+
+    refs = [_make_reference(0)]
+    results = [_make_verification_result(0)]
+    report_path = tmp_path / "output.txt"
+
+    runner = CliRunner()
+    with (
+        patch(
+            "citation_check.cli.check_grobid",
+            new_callable=AsyncMock,
+            return_value=True,
+        ),
+        patch(
+            "citation_check.cli.extract_references",
+            new_callable=AsyncMock,
+            return_value=refs,
+        ),
+        patch(
+            "citation_check.cli.verify_all",
+            new_callable=AsyncMock,
+            return_value=results,
+        ),
+    ):
+        result = runner.invoke(
+            main,
+            [
+                "verify-dir", str(tmp_path),
+                "--mailto", "test@test.com",
+                "-o", str(report_path),
+            ],
+        )
+
+    assert result.exit_code == 0
+    assert "2 PDF(s)" in result.output
+    assert report_path.exists()
+    report_text = report_path.read_text()
+    assert "paper1.pdf" in report_text
+    assert "paper2.pdf" in report_text
+    assert "VERIFIED" in report_text
+
+
+def test_verify_dir_no_pdfs(tmp_path):
+    """Test verify-dir fails when directory has no PDFs."""
+    runner = CliRunner()
+    with patch(
+        "citation_check.cli.check_grobid",
+        new_callable=AsyncMock,
+        return_value=True,
+    ):
+        result = runner.invoke(
+            main,
+            ["verify-dir", str(tmp_path), "--mailto", "test@test.com"],
+        )
+
+    assert result.exit_code != 0
+    assert "No PDF files" in result.output
+
+
+def test_verify_dir_grobid_not_running(tmp_path):
+    """Test verify-dir fails when GROBID is not available."""
+    (tmp_path / "paper.pdf").write_bytes(b"%PDF-1.4 dummy")
+
+    runner = CliRunner()
+    with patch(
+        "citation_check.cli.check_grobid",
+        new_callable=AsyncMock,
+        return_value=False,
+    ):
+        result = runner.invoke(
+            main,
+            ["verify-dir", str(tmp_path), "--mailto", "test@test.com"],
+        )
+
+    assert result.exit_code != 0

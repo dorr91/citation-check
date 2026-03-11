@@ -7,7 +7,7 @@ from io import StringIO
 from rich.console import Console
 
 from citation_check.models import Reference, SearchResult, VerificationResult
-from citation_check.report import print_report
+from citation_check.report import print_batch_summary, print_report, write_batch_report
 
 
 def _make_reference(index: int = 0, title: str = "Test Paper") -> Reference:
@@ -115,3 +115,67 @@ def test_no_flagged_detail_when_all_verified():
     results = [_make_result(status="verified", index=0)]
     output = _capture_report(results)
     assert "Flagged Citations Detail" not in output
+
+
+def test_batch_summary_output():
+    paper_results = [
+        ("paper1.pdf", [_make_result(status="verified", index=0)]),
+        ("paper2.pdf", [
+            _make_result(status="verified", index=0),
+            _make_result(status="not_found", index=1),
+        ]),
+    ]
+    buf = StringIO()
+    console = Console(file=buf, force_terminal=True, width=120, highlight=False)
+    print_batch_summary(paper_results, errors=[], console=console)
+    output = buf.getvalue()
+    assert "paper1.pdf" in output
+    assert "paper2.pdf" in output
+    assert "2/3 verified" in output
+    assert "1 flagged" in output
+
+
+def test_batch_summary_with_errors():
+    buf = StringIO()
+    console = Console(file=buf, force_terminal=True, width=120, highlight=False)
+    print_batch_summary(
+        paper_results=[],
+        errors=[("bad.pdf", "GROBID failed")],
+        console=console,
+    )
+    output = buf.getvalue()
+    assert "bad.pdf" in output
+    assert "1 paper(s) failed" in output
+
+
+def test_write_batch_report(tmp_path):
+    paper_results = [
+        ("paper1.pdf", [_make_result(status="verified", index=0)]),
+        ("paper2.pdf", [
+            _make_result(status="verified", index=0),
+            _make_result(status="mismatch", index=1, title="Bad Cite"),
+        ]),
+    ]
+    out_file = tmp_path / "report.txt"
+    write_batch_report(paper_results, errors=[], output_path=str(out_file))
+    text = out_file.read_text()
+    assert "CITATION VERIFICATION REPORT" in text
+    assert "SUMMARY" in text
+    assert "paper1.pdf" in text
+    assert "paper2.pdf" in text
+    assert "VERIFIED" in text
+    assert "MISMATCH" in text
+    assert "Bad Cite" in text
+
+
+def test_write_batch_report_verbose(tmp_path):
+    paper_results = [
+        ("paper.pdf", [_make_result(status="verified", index=0)]),
+    ]
+    out_file = tmp_path / "report.txt"
+    write_batch_report(
+        paper_results, errors=[], output_path=str(out_file), verbose=True,
+    )
+    text = out_file.read_text()
+    assert "Authors:" in text
+    assert "Year:" in text
