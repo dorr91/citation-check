@@ -9,9 +9,35 @@ from rapidfuzz import fuzz
 from citation_check.models import Reference, SearchResult, VerificationResult
 
 
+def _try_strip_subtitle(a: str, b: str) -> float:
+    """If one string has a colon and the other doesn't, strip the subtitle and re-score."""
+    a_has = ":" in a
+    b_has = ":" in b
+    if a_has == b_has:
+        return 0.0
+    if a_has:
+        prefix = a.split(":", 1)[0].strip()
+        if len(prefix.split()) >= 4:
+            return fuzz.token_sort_ratio(prefix, b)
+    else:
+        prefix = b.split(":", 1)[0].strip()
+        if len(prefix.split()) >= 4:
+            return fuzz.token_sort_ratio(a, prefix)
+    return 0.0
+
+
 def match_title(ref_title: str, result_title: str) -> float:
     """Return a 0-100 similarity score between two titles."""
-    return fuzz.token_sort_ratio(ref_title.lower(), result_title.lower())
+    ref_lower = ref_title.lower()
+    result_lower = result_title.lower()
+    score = fuzz.token_sort_ratio(ref_lower, result_lower)
+
+    # If one title has a subtitle (colon) and the other doesn't,
+    # try matching without the subtitle.
+    if score < 85:
+        score = max(score, _try_strip_subtitle(ref_lower, result_lower))
+
+    return score
 
 
 def _normalize_last_name(name: str) -> str:

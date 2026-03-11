@@ -28,6 +28,44 @@ def test_match_title_case_insensitive():
     assert score == 100.0
 
 
+def test_match_title_subtitle_in_result():
+    """Found title has subtitle, reference doesn't — should match on prefix."""
+    score = match_title(
+        'The Russian "Firehose of Falsehood" propaganda model',
+        'The Russian "Firehose of Falsehood" Propaganda Model: Why It Might Work and Options to Counter It',
+    )
+    assert score >= 85
+
+
+def test_match_title_subtitle_in_reference():
+    """Reference has subtitle, found title doesn't — should match on prefix."""
+    score = match_title(
+        "Attention Is All You Need: Transformers Explained",
+        "Attention Is All You Need",
+    )
+    assert score >= 85
+
+
+def test_match_title_subtitle_short_prefix_no_boost():
+    """Pre-colon portion too short (<4 words) — should not use subtitle stripping."""
+    score = match_title(
+        "Introduction",
+        "Introduction: A Comprehensive Guide to Modern Machine Learning",
+    )
+    # Without the guard this would be 100%; with the guard it stays low
+    assert score < 85
+
+
+def test_match_title_both_have_colons():
+    """Both titles have colons — subtitle stripping should not apply."""
+    score = match_title(
+        "Foo: Bar Baz",
+        "Foo: Something Completely Different",
+    )
+    # Should use normal scoring, not subtitle logic
+    assert score < 85
+
+
 def test_match_title_completely_different():
     score = match_title("Attention Is All You Need", "The Theory of Relativity")
     assert score < 40
