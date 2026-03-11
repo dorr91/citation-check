@@ -36,12 +36,15 @@ async def search_semantic_scholar(
 
     results: list[SearchResult] = []
     for paper in data.get("data", []):
+        paper_title = paper.get("title")
+        if not paper_title:
+            continue
         authors = [a["name"] for a in paper.get("authors", []) if "name" in a]
         venue = paper.get("venue") or None
         doi = (paper.get("externalIds") or {}).get("DOI")
         results.append(
             SearchResult(
-                title=paper["title"],
+                title=paper_title,
                 authors=authors,
                 year=paper.get("year"),
                 venue=venue,
