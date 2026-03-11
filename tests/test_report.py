@@ -131,8 +131,8 @@ def test_batch_summary_output():
     output = buf.getvalue()
     assert "paper1.pdf" in output
     assert "paper2.pdf" in output
-    assert "2/3 verified" in output
-    assert "1 flagged" in output
+    assert "2 exact" in output
+    assert "1 not found" in output
 
 
 def test_batch_summary_with_errors():
