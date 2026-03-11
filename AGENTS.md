@@ -12,7 +12,7 @@ PDF citation verifier: GROBID extracts references, then checks them against Cros
 
 ## Testing
 
-Uses `pytest-httpx` — do NOT use `url=` in `httpx_mock.add_response()` (exact match including query params). Use `@pytest.mark.asyncio`.
+Uses `pytest-httpx` — do NOT use exact string `url=` in `httpx_mock.add_response()` (brittle with query param ordering). Regex patterns (`url=re.compile(...)`) are fine. Use `@pytest.mark.asyncio`.
 
 ## External
 

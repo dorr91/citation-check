@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections.abc import Callable
 
 import httpx
 
@@ -15,7 +16,7 @@ from citation_check.models import Reference, SearchResult, VerificationResult
 
 logger = logging.getLogger(__name__)
 
-_DELAY_BETWEEN_REFS = 0.2  # seconds between references to be polite to APIs
+_MAX_CONCURRENT = 5  # max references verified concurrently
 
 
 def _not_found_result(reference: Reference, details: str) -> VerificationResult:
@@ -128,22 +129,16 @@ async def verify_reference(
     else:
         best = None
 
-    # 1. Crossref
+    # Query all three APIs concurrently
     kwargs = {"mailto": mailto} if mailto else {}
-    crossref_results = await search_crossref(title, **kwargs)
-    best = _pick_best(best, crossref_results, reference)
-    if best and best.status == "verified":
-        return best
+    crossref_results, ss_results, oa_results = await asyncio.gather(
+        search_crossref(title, **kwargs),
+        search_semantic_scholar(title),
+        search_openalex(title, **kwargs),
+    )
 
-    # 2. Semantic Scholar
-    ss_results = await search_semantic_scholar(title)
-    best = _pick_best(best, ss_results, reference)
-    if best and best.status == "verified":
-        return best
-
-    # 3. OpenAlex
-    oa_results = await search_openalex(title, **kwargs)
-    best = _pick_best(best, oa_results, reference)
+    for results in (crossref_results, ss_results, oa_results):
+        best = _pick_best(best, results, reference)
 
     if best is not None:
         return best
@@ -152,13 +147,24 @@ async def verify_reference(
 
 
 async def verify_all(
-    references: list[Reference], mailto: str | None = None
+    references: list[Reference],
+    mailto: str | None = None,
+    on_progress: Callable[[int, int], None] | None = None,
 ) -> list[VerificationResult]:
-    """Verify all references sequentially to respect rate limits."""
-    results: list[VerificationResult] = []
-    for i, ref in enumerate(references):
-        if i > 0:
-            await asyncio.sleep(_DELAY_BETWEEN_REFS)
-        vr = await verify_reference(ref, mailto=mailto)
-        results.append(vr)
-    return results
+    """Verify all references concurrently (bounded by _MAX_CONCURRENT)."""
+    sem = asyncio.Semaphore(_MAX_CONCURRENT)
+    completed = 0
+    total = len(references)
+
+    async def _verify_one(ref: Reference) -> VerificationResult:
+        nonlocal completed
+        async with sem:
+            result = await verify_reference(ref, mailto=mailto)
+        completed += 1
+        if on_progress:
+            on_progress(completed, total)
+        return result
+
+    return list(await asyncio.gather(
+        *(_verify_one(ref) for ref in references)
+    ))

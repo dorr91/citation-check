@@ -90,7 +90,13 @@ async def _verify(
 
     # 3. Verify all references
     click.echo("Verifying references...")
-    results = await verify_all(references, mailto=mailto)
+
+    def _progress(done: int, total: int) -> None:
+        click.echo(f"\r  {done}/{total} verified", nl=False)
+        if done == total:
+            click.echo()  # final newline
+
+    results = await verify_all(references, mailto=mailto, on_progress=_progress)
 
     # 4. Output results
     if output_format == "json":
