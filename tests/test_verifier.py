@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+
 import pytest
 
 from citation_check.models import Reference
@@ -70,8 +72,10 @@ OPENALEX_EMPTY = {"results": []}
 
 @pytest.mark.asyncio
 async def test_verified_by_crossref(httpx_mock):
-    """When Crossref returns a strong match, no other API is queried."""
-    httpx_mock.add_response(json=CROSSREF_GOOD_RESPONSE)
+    """When Crossref returns a strong match, result is verified."""
+    httpx_mock.add_response(url=re.compile(r".*crossref.*"), json=CROSSREF_GOOD_RESPONSE)
+    httpx_mock.add_response(url=re.compile(r".*semanticscholar.*"), json=SEMANTIC_SCHOLAR_EMPTY)
+    httpx_mock.add_response(url=re.compile(r".*openalex.*"), json=OPENALEX_EMPTY)
 
     ref = _make_ref()
     vr = await verify_reference(ref)
@@ -79,17 +83,16 @@ async def test_verified_by_crossref(httpx_mock):
     assert vr.status == "verified"
     assert vr.best_match is not None
     assert vr.best_match.source == "crossref"
-    # Only one HTTP request should have been made
-    assert len(httpx_mock.get_requests()) == 1
+    # All three APIs are queried concurrently
+    assert len(httpx_mock.get_requests()) == 3
 
 
 @pytest.mark.asyncio
 async def test_crossref_empty_semantic_scholar_succeeds(httpx_mock):
-    """When Crossref has no results, Semantic Scholar is tried next."""
-    # First call: Crossref returns empty
-    httpx_mock.add_response(json=CROSSREF_EMPTY)
-    # Second call: Semantic Scholar returns a good match
-    httpx_mock.add_response(json=SEMANTIC_SCHOLAR_GOOD_RESPONSE)
+    """When Crossref has no results, Semantic Scholar match is used."""
+    httpx_mock.add_response(url=re.compile(r".*crossref.*"), json=CROSSREF_EMPTY)
+    httpx_mock.add_response(url=re.compile(r".*semanticscholar.*"), json=SEMANTIC_SCHOLAR_GOOD_RESPONSE)
+    httpx_mock.add_response(url=re.compile(r".*openalex.*"), json=OPENALEX_EMPTY)
 
     ref = _make_ref()
     vr = await verify_reference(ref)
@@ -97,15 +100,15 @@ async def test_crossref_empty_semantic_scholar_succeeds(httpx_mock):
     assert vr.status == "verified"
     assert vr.best_match is not None
     assert vr.best_match.source == "semantic_scholar"
-    assert len(httpx_mock.get_requests()) == 2
+    assert len(httpx_mock.get_requests()) == 3
 
 
 @pytest.mark.asyncio
 async def test_no_results_from_any_api(httpx_mock):
     """When all APIs return empty, status is not_found."""
-    httpx_mock.add_response(json=CROSSREF_EMPTY)
-    httpx_mock.add_response(json=SEMANTIC_SCHOLAR_EMPTY)
-    httpx_mock.add_response(json=OPENALEX_EMPTY)
+    httpx_mock.add_response(url=re.compile(r".*crossref.*"), json=CROSSREF_EMPTY)
+    httpx_mock.add_response(url=re.compile(r".*semanticscholar.*"), json=SEMANTIC_SCHOLAR_EMPTY)
+    httpx_mock.add_response(url=re.compile(r".*openalex.*"), json=OPENALEX_EMPTY)
 
     ref = _make_ref()
     vr = await verify_reference(ref)

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from io import StringIO
 from unittest.mock import AsyncMock, patch
 
@@ -113,9 +114,9 @@ def test_unicode_accented_authors_match():
 @pytest.mark.asyncio
 async def test_all_apis_empty_returns_not_found(httpx_mock):
     """When all three APIs return empty results, status should be 'not_found'."""
-    httpx_mock.add_response(json=CROSSREF_EMPTY)
-    httpx_mock.add_response(json=SEMANTIC_SCHOLAR_EMPTY)
-    httpx_mock.add_response(json=OPENALEX_EMPTY)
+    httpx_mock.add_response(url=re.compile(r".*crossref.*"), json=CROSSREF_EMPTY)
+    httpx_mock.add_response(url=re.compile(r".*semanticscholar.*"), json=SEMANTIC_SCHOLAR_EMPTY)
+    httpx_mock.add_response(url=re.compile(r".*openalex.*"), json=OPENALEX_EMPTY)
 
     ref = _make_ref(title="A Paper That Does Not Exist Anywhere")
     vr = await verify_reference(ref)
