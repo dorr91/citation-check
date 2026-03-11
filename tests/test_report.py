@@ -94,3 +94,24 @@ def test_no_results():
     output = _capture_report([])
     assert "0/0 references verified" in output
     assert "0 flagged" in output
+
+
+def test_flagged_detail_shown_for_nonverified():
+    results = [
+        _make_result(status="verified", index=0),
+        _make_result(status="mismatch", index=1, title="Bad Paper"),
+        _make_result(status="not_found", index=2, title="Missing Paper"),
+    ]
+    output = _capture_report(results)
+    assert "Flagged Citations Detail" in output
+    assert "Bad Paper" in output
+    assert "Missing Paper" in output
+    assert "no results from any source" in output
+    # Verified citation should not appear in detail section beyond the table
+    # (it's in the table, but not repeated in detail)
+
+
+def test_no_flagged_detail_when_all_verified():
+    results = [_make_result(status="verified", index=0)]
+    output = _capture_report(results)
+    assert "Flagged Citations Detail" not in output
