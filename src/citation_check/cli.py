@@ -29,12 +29,26 @@ def main():
     type=click.Choice(["table", "json"]),
     default="table",
 )
-def verify(pdf_path, grobid_url, verbose, output_format):
+@click.option(
+    "--skip-indices",
+    default=None,
+    help="Comma-separated list of reference indices to skip (e.g. 0,3,5)",
+)
+def verify(pdf_path, grobid_url, verbose, output_format, skip_indices):
     """Verify citations in a PDF paper."""
-    asyncio.run(_verify(pdf_path, grobid_url, verbose, output_format))
+    asyncio.run(_verify(pdf_path, grobid_url, verbose, output_format, skip_indices))
 
 
-async def _verify(pdf_path, grobid_url, verbose, output_format):
+async def _verify(pdf_path, grobid_url, verbose, output_format, skip_indices=None):
+    # Parse skip indices
+    skip_set: set[int] = set()
+    if skip_indices:
+        try:
+            skip_set = {int(x.strip()) for x in skip_indices.split(",")}
+        except ValueError:
+            click.echo("Error: --skip-indices must be comma-separated integers", err=True)
+            raise SystemExit(1)
+
     # 1. Check GROBID is running
     alive = await check_grobid(grobid_url)
     if not alive:
@@ -45,6 +59,9 @@ async def _verify(pdf_path, grobid_url, verbose, output_format):
     click.echo(f"Extracting references from {pdf_path}...")
     references = await extract_references(pdf_path, grobid_url)
     click.echo(f"Found {len(references)} references.")
+
+    if skip_set:
+        references = [r for r in references if r.index not in skip_set]
 
     if not references:
         click.echo("No references found.")

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import httpx
 
+from citation_check.clients import retry_on_rate_limit
 from citation_check.models import SearchResult
 
 _DOI_PREFIX = "https://doi.org/"
@@ -25,13 +26,18 @@ async def search_openalex(
         "mailto": mailto,
     }
 
-    try:
+    @retry_on_rate_limit
+    async def _fetch():
         async with httpx.AsyncClient(timeout=15.0) as client:
             resp = await client.get(
                 "https://api.openalex.org/works", params=params
             )
             resp.raise_for_status()
-            data = resp.json()
+            return resp
+
+    try:
+        resp = await _fetch()
+        data = resp.json()
     except (httpx.HTTPError, ValueError):
         return []
 
