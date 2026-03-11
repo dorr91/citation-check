@@ -11,7 +11,7 @@ from citation_check.models import Reference, SearchResult, VerificationResult
 
 def match_title(ref_title: str, result_title: str) -> float:
     """Return a 0-100 similarity score between two titles."""
-    return fuzz.token_sort_ratio(ref_title, result_title)
+    return fuzz.token_sort_ratio(ref_title.lower(), result_title.lower())
 
 
 def _normalize_last_name(name: str) -> str:
