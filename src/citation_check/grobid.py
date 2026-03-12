@@ -30,9 +30,9 @@ async def extract_references(
 
     async with httpx.AsyncClient() as client:
         resp = await client.post(
-            f"{grobid_url}/api/processReferences",
+            f"{grobid_url}/api/processFulltextDocument",
             files={"input": ("file.pdf", pdf_bytes, "application/pdf")},
-            timeout=60.0,
+            timeout=120.0,
         )
         resp.raise_for_status()
 
