@@ -154,7 +154,7 @@ class TestExtractReferences:
         pdf_file.write_bytes(b"%PDF-1.4 fake content")
 
         httpx_mock.add_response(
-            url="http://localhost:8070/api/processReferences",
+            url="http://localhost:8070/api/processFulltextDocument",
             text=SAMPLE_TEI_XML,
         )
 
